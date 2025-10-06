@@ -85,3 +85,57 @@ class DocumentProcess:
         except Exception as e:
             print(f"[ERROR] Rerank documents failed: {e}")
             return documents
+    
+    @staticmethod
+    def transform_survey_json_to_text(json_data):
+        """
+        Transforme votre JSON de survey en texte structuré
+        Retourne None si le JSON n'a pas la structure attendue
+        """
+        # Vérifier si c'est un JSON de survey avec la structure attendue
+        if not isinstance(json_data, dict):
+            return None
+        
+        has_survey_structure = (
+            json_data.get("tables") is not None or 
+            json_data.get("title") is not None or
+            json_data.get("description") is not None
+        )
+    
+        if not has_survey_structure:
+                return None
+
+        lines = []
+
+        # Titre et description principale
+        title = json_data.get("title", "")
+        description = json_data.get("description", "")
+
+        if title:
+            lines.append(f"# {title}")
+        if description:
+            lines.append(f'Description : "{description}"')
+
+        # Traitement des tables
+        tables = json_data.get("tables", [])
+
+        for table in tables:
+            table_title = table.get("table_title", "")
+            table_description = table.get("table_description", "")
+        
+            if table_title:
+                lines.append(f'\n## "{table_title}"')
+            if table_description:
+                lines.append(f'Contexte : "{table_description}"')
+            
+            # Colonnes
+            columns = table.get("columns", [])
+            if columns:
+                lines.append("\nColonnes :")
+                for column in columns:
+                    name = column.get("name", "").strip()
+                    description = column.get("description", "").strip()
+                    if name:  # Only add if name is not empty
+                        lines.append(f'          "{name}" : "{description}"')
+    
+        return str("\n".join(lines)) if lines else None

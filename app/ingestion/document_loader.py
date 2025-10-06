@@ -10,6 +10,7 @@ import logging
 from app.load_secrets import LoadSecrets
 from app.security.file_validator import FileValidator
 from app.security.resource_limits import JSONSecurityValidator
+from app.ingestion.document_process import DocumentProcess
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class DocumentLoader:
         and security validators for various document types (PDF, CSV, JSON).
         """
         load_secret = LoadSecrets()
+        self.doc_process = DocumentProcess()
         self.file_dir = load_secret.get_file_dir()
         self.csv_delimiter = load_secret.get_csv_delimiter()
         self._list_docs = []  # Stores the loaded Haystack Document objects
@@ -114,20 +116,50 @@ class DocumentLoader:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
+            
                 # If the JSON is a list of objects, create a document for each object.
-                # Otherwise, treat the entire JSON content as a single document.
                 if isinstance(data, list):
                     for idx, item in enumerate(data):
-                        content = json.dumps(item, ensure_ascii=False, indent=2)
-                        doc = Document(content=content, meta={"source": path, "record_index": idx, "type": "json"})
-                        if not self.clear_doc(doc=doc): self.set_doc(document=doc)
+                        # Essayer la transformation survey, sinon fallback JSON standard
+                        transformed_content = self.doc_process.transform_survey_json_to_text(json_data=item)
+                        if transformed_content:
+                            content = transformed_content
+                            doc_type = "adapted_json"
+                        else:
+                            content = json.dumps(item, ensure_ascii=False, indent=2)
+                            doc_type = "json"
+                    
+                        doc = Document(
+                            content=content, 
+                            meta={
+                                "source": path, 
+                                "record_index": idx, 
+                                "type": doc_type,
+                            }
+                        )
+                        if not self.clear_doc(doc=doc): 
+                            self.set_doc(document=doc)
                 else:
-                    # This block seems to duplicate the list handling if data is iterable but not a list.
-                    # It might be intended to handle single JSON objects as well.
-                    for idx, item in enumerate(data):
+                    # Traitement pour un JSON simple (non-liste)
+                    transformed_content = self.doc_process.transform_survey_json_to_text(json_data=data)
+                    if transformed_content:
+                        content = transformed_content
+                        doc_type = "adapted_json"
+                    else:
                         content = json.dumps(data, ensure_ascii=False, indent=2)
-                        doc = Document(content=content, meta={"source": path, "record_index": idx, "type": "json"})
-                        if not self.clear_doc(doc=doc): self.set_doc(document=doc)
+                        doc_type = "json"
+                
+                    doc = Document(
+                        content=content, 
+                        meta={
+                            "source": path, 
+                            "record_index": 0,  # Un seul document donc index 0
+                            "type": doc_type,
+                    }
+                )
+                if not self.clear_doc(doc=doc): 
+                    self.set_doc(document=doc)
+                    
             except Exception as e:
                 logger.warning("JSON load failed for %s", path, exc_info=e)
                 continue
