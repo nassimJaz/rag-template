@@ -1,0 +1,51 @@
+graph TD
+    subgraph "Main Execution"
+        A[run.py]
+    end
+
+    subgraph "Retrieval"
+        B[retriever/qdrant_retriever.py]
+        C[retriever/pipeline_hyde_retriever.py]
+        D[retriever/qdrant_embedding_query.py]
+        E[vector_db/qdrant_store.py]
+        F[ingestion/document_process.py]
+    end
+
+    subgraph "Generation"
+        G[generation/generate_response.py]
+        H[generation/pipeline_builder.py]
+        I[generation/llm_lib.py]
+    end
+
+    subgraph "Configuration"
+        J[load_secrets.py]
+        K[.env]
+    end
+
+    A --> B
+    A --> G
+
+    B --> C
+    B --> D
+    B --> E
+    B --> F
+    B --> J
+
+    C --> I
+    C --> J
+
+    D --> J
+
+    E --> J
+
+    F --> J
+
+    G --> H
+    G --> J
+
+    H --> I
+    H --> J
+
+    I --> J
+    
+    J --> K
