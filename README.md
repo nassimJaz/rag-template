@@ -1,22 +1,6 @@
-# Projet RAG (Retrieval-Augmented Generation)
+# Modèle de RAG (Retrieval-Augmented Generation)
 
-Ce projet est un chatbot conçu spécifiquement pour les Junior-Entreprises. Sa mission est de répondre à leurs questions complexes, qu'elles portent sur le cadre légal, les processus internes, la trésorerie ou les normes qualité. L'application fonctionne sur le principe du RAG (Retrieval-Augmented Generation) : elle ingère un ensemble de documents de référence (normes, guides, documents légaux), les analyse et les stocke. Lorsqu'une question est posée, le chatbot recherche les informations les plus pertinentes dans sa base de connaissances et s'appuie sur un modèle de langage pour formuler une réponse précise et contextualisée.
-
-## Questions pertinantes
-
-Voici une liste de question pour tester le RAG rapidement :
-
-- Qu'est ce qu'un JEH ?
-
-- Est ce qu'un RM est obligatoire ?
-
-- Décris moi l'architecture d'un Junior Entreprise.
-
-- Parle moi du mouvement des Juniors Entreprises.
-
-- Est ce qu'il est possible de faire des sous traitances au sein d'un Junior Entreprise ?
-
-- Donne moi les documents obligatoires d'un étude.
+Ce projet est un modèle d'application RAG (Retrieval-Augmented Generation). Il est conçu pour servir de base à la création de chatbots et d'assistants capables de répondre à des questions complexes en s'appuyant sur une base de connaissances fournie. Le principe du RAG consiste à ingérer un ensemble de documents, à les analyser et à les stocker dans une base de données vectorielle. Lorsqu'une question est posée, l'application recherche les informations les plus pertinentes dans sa base de connaissances et utilise un modèle de langage (LLM) pour formuler une réponse précise et contextualisée.
 
 ## Utilisation et installation
 
@@ -32,45 +16,26 @@ Voici une liste de question pour tester le RAG rapidement :
     ```
 3. **Streamlit :**
     Aller sur le port `http://localhost:8501`
-    Lors de la première utilisation lancer l'ingestion et échauffer le modèle d'embedding avec une question.
-    L'installation de l'embedding sur le service peut prendre jusqu'à 5min.
+    Lors de la première utilisation, lancez l'ingestion des documents et posez une première question pour initialiser le modèle d'embedding.
+    L'initialisation du modèle d'embedding peut prendre jusqu'à 5 minutes.
 
-## Clé Portkey :
+## Clé Portkey
 
-Voici un guide simple pour avoir une clé Portkey. Portkey est un proxy-multi LLM.
-Il est donc possible de choisir tout type de LLM disponible sur Portkey tel que OpenAI, Claude Code, Open Router, Groq etc ...
+Portkey est un proxy qui unifie l'accès à de multiples fournisseurs de LLM (OpenAI, Claude, Groq, etc.). Voici comment configurer votre clé :
 
-Il est important de choisir le modèle en fonction du fournisseur dans le .env
-
-1. Se rendre sur le site de [Portkey](https://portkey.ai/)
-2. Se connecter/inscrire
-3. Ajouter un fournisseur et le choisir : [](https://app.portkey.ai/model-catalog/providers)
-4. Cliquer sur : +add new integration
-5. Donner le nom voulu
-6. Mettre pour le slug : **rag_llm** ou bien en mettre un personnalisé à changer dans le .env :
-```bash
-SLUG_PORTKEY=
-```
-7. Mettre la clé API du fournisseur
-8. Accéder aux modèles disponibles sur Portkey: [Models](https://app.portkey.ai/model-catalog)
-9. Voir "models" et le copier dans le .env :
-```bash
-GENERATION_MODEL=
-```
-
-9. Générer sa clé API Portkey. Se rendre sur : [API Keys](https://app.portkey.ai/api-keys)
-10. Cliquer sur : Create (et laisser sur service pour avoir tout les droits)
-11. Cliquer sur create en bas à droite
-12. Copier et coller la clé générée dans le .env : 
-```bash
-PORTKEY_KEY=
-```
+1.  Créez un compte sur [Portkey](https://portkey.ai/).
+2.  Ajoutez un fournisseur de modèle depuis le [catalogue de modèles](https://app.portkey.ai/model-catalog/providers).
+3.  Cliquez sur `+add new integration`, donnez-lui un nom et définissez un slug (par défaut `rag_llm`).
+4.  Renseignez la clé API de votre fournisseur.
+5.  Copiez le nom du modèle souhaité depuis le [catalogue](https://app.portkey.ai/model-catalog) et collez-le dans la variable `GENERATION_MODEL` de votre fichier `.env`.
+6.  Générez une clé API Portkey dans la section [API Keys](https://app.portkey.ai/api-keys) et copiez-la dans la variable `PORTKEY_KEY` de votre `.env`.
 
 ## Configuration
 
-Créez un fichier `.env` à la racine du projet pour configurer l'application à l'aide du `.env.example`
+Créez un fichier `.env` à la racine du projet en vous basant sur `.env.example`.
+
 ```bash
-touch .env
+cp .env.example .env
 ```
 
 Voici la liste des variables d'environnement que vous pouvez définir :
@@ -82,7 +47,6 @@ Voici la liste des variables d'environnement que vous pouvez définir :
 | `CHUNK_SIZE` | Taille des chunks pour le découpage des documents. | `1024` |
 | `CHUNK_OVERLAP` | Chevauchement entre les chunks. | `300` |
 | `USE_GPU` | Mettre à `true` pour utiliser le GPU. | `false` |
-| `VECTOR_STORE_DIR`| Dossier pour la base de données vectorielle. | `./qdrant` |
 | `RAG_METHOD` | Méthode de RAG (`similarity` ou `hyde`). | `similarity` |
 | `FILE_DIR` | Dossier contenant les fichiers à ingérer (PDF, CSV, JSON). | `./docs` |
 | `PROMPTS_DIR` | Dossier contenant les prompts du RAG en format `.j2` | `./app/prompts` |
@@ -94,7 +58,7 @@ Voici la liste des variables d'environnement que vous pouvez définir :
 | `SLUG_PORTKEY` | Slug pour Portkey. | `rag_llm` |
 | `OLLAMA_HOST` | Hôte pour Ollama. | `http://localhost:11434` |
 | `TEMPERATURE` | Température pour la génération de la réponse. | `0` |
-| `TOP_K` | Nombre de documents à récupérer parmi les k plus probables. | `10` |
+| `TOP_K` | Nombre de documents à récupérer. | `10` |
 | `RERANKER_ENABLE` | Activer le reranker. | `true` |
 | `RERANKER_TOP_K` | Nombre de documents à garder après le reranking. | `3` |
 | `CROSS_ENCODER` | Modèle de cross-encoder à utiliser pour le reranking. | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
@@ -111,6 +75,11 @@ Ce projet utilise les technologies suivantes :
     -   [Portkey](https://portkey.ai/) comme passerelle pour accéder à divers fournisseurs de LLM (OpenAI, Groq, etc.).
 -   **Traitement de Documents**:
     -   `pypdf` pour l'extraction de texte à partir de fichiers PDF.
-    -   `langdetect` pour la détection de la langue des documents.
 -   **Templating de Prompt**: `Jinja2` pour la construction dynamique des prompts.
 -   **Configuration**: `python-dotenv` pour la gestion des variables d'environnement.
+
+<br>
+<br>
+<p align="center">
+  <img width="1200" alt="shema" src="mermaid/shema.png">
+</p>
