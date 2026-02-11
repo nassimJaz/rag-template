@@ -57,6 +57,7 @@ class LoadSecrets:
             self.prompts_dir = os.getenv("PROMPTS_DIR", "./app/prompts")
 
             self.qdrant_key = os.getenv("QDRANT_API_KEY")
+            self.enable_logging = os.getenv("ENABLE_LOGGING", "true").lower() == "true"
             self._initialized = True
 
     def _validate_temperature(self, temp_str: str | None) -> float:
@@ -162,3 +163,6 @@ class LoadSecrets:
     
     def get_qdrant_key(self):
         return self.qdrant_key
+    
+    def get_enable_logging(self):
+        return self.enable_logging

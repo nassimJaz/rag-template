@@ -71,3 +71,55 @@ class GenerateResponse:
                 raise RuntimeError(f"Unknown provider: {provider}")
             
         return llm_response
+    
+    def generate_stream(self):
+        """
+        Generate a streaming response using Ollama.
+        This method yields tokens as they are generated, allowing for real-time display.
+        Only works with Ollama provider.
+        
+        Yields:
+            str: Individual tokens/chunks from the LLM response
+        
+        Raises:
+            RuntimeError: If provider is not Ollama or if streaming fails
+        """
+        provider = self.pipeline_builder.get_provider()
+        
+        if provider != "ollama":
+            raise RuntimeError(f"Streaming is only supported for Ollama provider, not {provider}")
+        
+        prompt_template = self.pipeline_builder.get_prompt_template()
+        prompt = prompt_template.render(documents=self.get_documents(), query=self.get_query())
+        
+        try:
+            # Create Ollama client with proper host configuration
+            ollama_host = self.load_secrets.get_ollama_host()
+            client = ollama.Client(host=ollama_host)
+            
+            # Use ollama.chat with streaming enabled
+            # Use the same model as non-streaming mode (GENERATION_MODEL)
+            model = self.get_llm_model()
+            
+            stream = client.chat(
+                model=model,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                stream=True,
+                options={
+                    'temperature': self.load_secrets.get_temperature()
+                }
+            )
+            
+            # Yield each chunk as it arrives
+            for chunk in stream:
+                if 'message' in chunk and 'content' in chunk['message']:
+                    yield chunk['message']['content']
+                    
+        except (ollama.ResponseError, KeyError) as e:
+            logger.exception("Ollama streaming failed.")
+            raise RuntimeError("Ollama streaming failed.") from e
