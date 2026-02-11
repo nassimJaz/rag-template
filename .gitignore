@@ -8,3 +8,4 @@ results_*.json
 raw/
 **/vector_basis/
 qdrant_storage/
+docs/*
