@@ -3,13 +3,12 @@ import logging
 from app.ingestion.ingest import ingest
 from app.retriever.qdrant_retriever import QdrantRetriever
 from app.generation.generate_response import GenerateResponse
+from app.logging_config import configure_logging
 
 from cli_ans import *
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-)
+
+# Configure logging based on ENABLE_LOGGING environment variable
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,24 @@ def build_vector_store(force_rebuild: bool):
         ingest()
 
 
-def run_rag(query: str, force_rebuild: bool = False):
+
+
+def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
+    """
+    Execute the RAG pipeline with optional streaming support.
+    
+    Args:
+        query: User's question
+        force_rebuild: Whether to rebuild the vector store
+        stream: If True and provider is Ollama, stream the response token by token
+        
+    Returns:
+        dict: Contains 'answer' and 'sources', or None if streaming is enabled
+        
+    Note:
+        When streaming is enabled, the answer is printed directly to console
+        and the function returns None.
+    """
     try :
         # 1) build vector store or not
         build_vector_store(force_rebuild=force_rebuild)
@@ -35,13 +51,37 @@ def run_rag(query: str, force_rebuild: bool = False):
         logger.info("Retrieving documents...")
         retrieved = QdrantRetriever().retrieve(query=query)
         logger.info("Generating answer...")
-        result_gen = GenerateResponse(retrieved, query).generate()
         
-        try :
-            used_sources = extracts_sources(result_gen, retrieved)
-            return {"answer": result_gen, "sources": used_sources}
-        except Exception :
-            return {"answer" : result_gen, "sources": None}
+        # Check if we should use streaming
+        from app.load_secrets import LoadSecrets
+        provider = LoadSecrets().get_provider()
+        
+        if stream and provider == "ollama":
+            # Use streaming mode
+            generator = GenerateResponse(retrieved, query)
+            print("\n", end="", flush=True)  # Start on new line
+            full_response = ""
+            
+            for chunk in generator.generate_stream():
+                print(chunk, end="", flush=True)
+                full_response += chunk
+            
+            print()  # New line after streaming completes
+            
+            try:
+                used_sources = extracts_sources(full_response, retrieved)
+                return {"answer": full_response, "sources": used_sources}
+            except Exception:
+                return {"answer": full_response, "sources": None}
+        else:
+            # Use non-streaming mode (original behavior)
+            result_gen = GenerateResponse(retrieved, query).generate()
+            
+            try :
+                used_sources = extracts_sources(result_gen, retrieved)
+                return {"answer": result_gen, "sources": used_sources}
+            except Exception :
+                return {"answer" : result_gen, "sources": None}
     except Exception as e:
         logger.exception("An error occurred during RAG execution.")
         #import traceback
@@ -51,20 +91,31 @@ def run_rag(query: str, force_rebuild: bool = False):
 
 if __name__ == "__main__":
     logger.info("Type 'exit' to quit the console.")
+    
+    # Check if we're using Ollama for streaming
+    from app.load_secrets import LoadSecrets
+    provider = LoadSecrets().get_provider()
+    use_streaming = (provider == "ollama")
+    
+    if use_streaming:
+        logger.info("Streaming mode enabled for Ollama")
+    
     query =""
     while(query != "exit"):
         query = input("Question : ")
         if query == "exit":
             break
-        result = run_rag(query, force_rebuild=False)
+        result = run_rag(query, force_rebuild=False, stream=use_streaming)
 
         if result:
-            print("\n", result["answer"])
+            # If not streaming, print the answer (streaming already printed it)
+            if not use_streaming:
+                print("\n", result["answer"])
     
-            if result["sources"]:
-                print("\nSources utilisées:")
-                for s in result["sources"]:
-                    print("- ", s)
+            #if result["sources"]:
+                #print("\nSources utilisées:")
+                #for s in result["sources"]:
+                    #print("- ", s)
 
         print("\n\n")
     logger.info("Thank you for testing the RAG :)")
