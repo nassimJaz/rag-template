@@ -23,7 +23,7 @@ echo -e "${B_BLUE}=======================================${NC}"
 
 # 1. Check/Create Virtual Environment
 if [ ! -d "$VENV_DIR" ]; then
-    echo -e "${CYAN}[1/4] Création de l'environnement virtuel...${NC}"
+    echo -e "${CYAN}[1/5] Création de l'environnement virtuel...${NC}"
     python3 -m venv "$VENV_DIR"
     if [ $? -ne 0 ]; then
         echo -e "${B_RED}Erreur : Échec lors de la création de l'environnement virtuel.${NC}"
@@ -34,7 +34,7 @@ else
 fi
 
 # 2. Activate Virtual Environment & Docker
-echo -e "${CYAN}[2/4] Activation des services...${NC}"
+echo -e "${CYAN}[2/5] Activation des services...${NC}"
 source "$VENV_DIR/bin/activate"
 
 echo -e "${BLUE}  → Lancement de Qdrant (Docker)...${NC}"
@@ -50,7 +50,7 @@ if [ -f "$REQUIREMENTS" ]; then
     echo -ne "${YELLOW}Veux-tu installer les dépendances python ? (y/N): ${NC}"
     read -r install_deps
     if [[ "$install_deps" =~ ^[Yy]$ ]]; then
-        echo -e "${CYAN}[3/4] Mise à jour de pip et installation...${NC}"
+        echo -e "${CYAN}[3/5] Mise à jour de pip et installation...${NC}"
         pip install --upgrade pip
         pip install -r "$REQUIREMENTS"
     else
@@ -60,14 +60,25 @@ else
     echo -e "${B_RED}⚠ Avertissement : $REQUIREMENTS non trouvé.${NC}"
 fi
 
-# 4. Run the Application
-echo -e "\n${B_GREEN}🚀 Mise en marche du RAG CLI...${NC}"
+# 4. Ingestion des données
+echo -ne "${YELLOW}Veux-tu lancer l'ingestion des documents ? (y/N): ${NC}"
+read -r run_ingest
+if [[ "$run_ingest" =~ ^[Yy]$ ]]; then
+    echo -e "${CYAN}[4/5] Lancement de l'ingestion...${NC}"
+    python3 -m app.ingestion.ingest
+    echo -e "${B_GREEN}✔ Ingestion terminée.${NC}"
+else
+    echo -e "${BLUE}Skipping : Ingestion ignorée.${NC}"
+fi
+
+# 5. Run the Application
+echo -e "\n${B_GREEN}🚀 [5/5] Mise en marche du RAG CLI...${NC}"
 echo -e "${BLUE}(Tapez 'exit' pour quitter)${NC}"
 echo -e "${B_BLUE}---------------------------------------${NC}"
 
 python "$APP_SCRIPT"
 
-# 5. Deactivate on exit
+# 6. Deactivate on exit
 deactivate
 echo -e "\n${B_BLUE}---------------------------------------${NC}"
 echo -e "${YELLOW}Environnement désactivé. À bientôt !${NC}"
