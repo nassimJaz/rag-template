@@ -10,11 +10,70 @@ Ce projet est un modèle d'application RAG (Retrieval-Augmented Generation). Il 
     cd <nom-du-depot>
     ```
 
-2.  **Lancer le service par docker:**
-    ```bash
-    docker compose up -d
+2. **Créer le fichier de configuration :**
     ```
-3. **Streamlit :**
+    cp .env.example .env
+    ```
+    > Modifier le choix du provider :
+        (modifier en conséquence les autres variables du fichier)
+    ```bash
+    PROVIDER="portkey"
+    ```
+    Ou bien :
+    ```bash
+    PROVIDER="ollama"
+    ```
+
+### Ne pas oublier d'ajouter ses documents avant l'ingestion avec UNIQUEMENT les extensions suivantes : `PDF, JSON, CSV, TXT, MD`
+    Note : ne pas mettre d'espaces ni de caratères pour le titre des documents lors de l'ingestion
+
+
+## Utilisation du RAG par CLI (Command Line Interface)
+
+### Méthode 1 : Par fichier shell
+
+3. **Lancer le script shell :**
+    ```bash
+    chmod +x ./run.sh
+    ./run.sh
+    ```
+
+### Méthode 2 : Par le terminal
+
+3. **Créer un fichier d'environnement virtuel python et l'activer**
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+4. **Installer les dépendances :**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+5.  **Lancer la base de donnée vectorielle par docker:**
+    ```bash
+    docker compose up qdrant -d
+    ```
+
+6. **Initialiser les documents dans la base vectorielle :**
+    ```bash
+    python3 -m app.ingestion.ingest
+    ```
+
+7. **Exécuter le script python :**
+    ```bash
+    python3 app_cli.py
+    ```
+
+## Utilisation du RAG via Streamlit (interface web)
+
+3. **Lancer la base de donnée vectorielle par docker:**
+    ```bash
+    docker compose up qdrant -d
+    ```
+
+4. **Ouvrir l'interface Streamlit :**
     Aller sur le port `http://localhost:8501`
     Lors de la première utilisation, lancez l'ingestion des documents et posez une première question pour initialiser le modèle d'embedding.
     L'initialisation du modèle d'embedding peut prendre jusqu'à 5 minutes.
@@ -31,12 +90,6 @@ Portkey est un proxy qui unifie l'accès à de multiples fournisseurs de LLM (Op
 6.  Générez une clé API Portkey dans la section [API Keys](https://app.portkey.ai/api-keys) et copiez-la dans la variable `PORTKEY_KEY` de votre `.env`.
 
 ## Configuration
-
-Créez un fichier `.env` à la racine du projet en vous basant sur `.env.example`.
-
-```bash
-cp .env.example .env
-```
 
 Voici la liste des variables d'environnement que vous pouvez définir :
 
