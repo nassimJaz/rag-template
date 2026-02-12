@@ -110,7 +110,18 @@ if __name__ == "__main__":
         if result:
             # If not streaming, print the answer (streaming already printed it)
             if not use_streaming:
-                print("\n", result["answer"])
+                from rich.console import Console
+                from rich.markdown import Markdown
+
+                console = Console()
+
+                def display_response(text):
+                    md = Markdown(text)
+                    console.print(md)
+                
+                print("\n\n\n")
+                display_response(result["answer"])
+                #print("\n", result["answer"])
     
             if result["sources"]:
                 print("\nSources utilisées:")

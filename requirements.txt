@@ -23,3 +23,6 @@ pytest
 
 #Streamlit
 streamlit
+
+# Print markdown in terminal
+rich
