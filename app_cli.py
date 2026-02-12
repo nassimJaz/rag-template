@@ -112,10 +112,10 @@ if __name__ == "__main__":
             if not use_streaming:
                 print("\n", result["answer"])
     
-            #if result["sources"]:
-                #print("\nSources utilisées:")
-                #for s in result["sources"]:
-                    #print("- ", s)
+            if result["sources"]:
+                print("\nSources utilisées:")
+                for s in result["sources"]:
+                    print("- ", s)
 
         print("\n\n")
-    logger.info("Thank you for testing the RAG :)")
+    print("Thank you for testing the RAG :)")
