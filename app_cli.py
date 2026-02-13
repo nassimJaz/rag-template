@@ -57,16 +57,22 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
         provider = LoadSecrets().get_provider()
         
         if stream and provider in ["ollama", "portkey"]:
-            # Use streaming mode
+            # Use streaming mode with Rich markdown rendering
+            from rich.console import Console
+            from rich.markdown import Markdown
+            from rich.live import Live
+            
+            console = Console()
             generator = GenerateResponse(retrieved, query)
-            print("\n", end="", flush=True)  # Start on new line
             full_response = ""
             
-            for chunk in generator.generate_stream():
-                print(chunk, end="", flush=True)
-                full_response += chunk
-            
-            print()  # New line after streaming completes
+            # Use Live display for real-time markdown rendering
+            with Live(console=console, refresh_per_second=10) as live:
+                for chunk in generator.generate_stream():
+                    full_response += chunk
+                    # Update the live display with formatted markdown
+                    md = Markdown(full_response)
+                    live.update(md)
             
             try:
                 used_sources = extracts_sources(full_response, retrieved)
