@@ -34,7 +34,7 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
     Args:
         query: User's question
         force_rebuild: Whether to rebuild the vector store
-        stream: If True and provider is Ollama, stream the response token by token
+        stream: If True and provider is Ollama or Portkey, stream the response token by token
         
     Returns:
         dict: Contains 'answer' and 'sources', or None if streaming is enabled
@@ -56,7 +56,7 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
         from app.load_secrets import LoadSecrets
         provider = LoadSecrets().get_provider()
         
-        if stream and provider == "ollama":
+        if stream and provider in ["ollama", "portkey"]:
             # Use streaming mode
             generator = GenerateResponse(retrieved, query)
             print("\n", end="", flush=True)  # Start on new line
@@ -92,13 +92,13 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
 if __name__ == "__main__":
     logger.info("Type 'exit' to quit the console.")
     
-    # Check if we're using Ollama for streaming
+    # Check if we're using Ollama or Portkey for streaming
     from app.load_secrets import LoadSecrets
     provider = LoadSecrets().get_provider()
-    use_streaming = (provider == "ollama")
+    use_streaming = (provider in ["ollama", "portkey"])
     
     if use_streaming:
-        logger.info("Streaming mode enabled for Ollama")
+        logger.info(f"Streaming mode enabled for {provider}")
     
     query =""
     while(query != "exit"):
