@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from app.ingestion.ingest import ingest
 from app.retriever.qdrant_retriever import QdrantRetriever
 from app.generation.generate_response import GenerateResponse
@@ -11,6 +12,43 @@ from cli_ans import *
 configure_logging()
 
 logger = logging.getLogger(__name__)
+
+def convert_latex_to_unicode(text: str) -> str:
+    """
+    Convert LaTeX formulas in text to Unicode characters for better terminal display.
+    Handles both inline ($...$) and display ($$...$$) math modes.
+    
+    Args:
+        text: Text containing LaTeX formulas
+        
+    Returns:
+        Text with LaTeX converted to Unicode
+    """
+    try:
+        from pylatexenc.latex2text import LatexNodes2Text
+        
+        converter = LatexNodes2Text()
+        
+        # Convert display math ($$...$$)
+        text = re.sub(
+            r'\$\$(.*?)\$\$',
+            lambda m: '\n' + converter.latex_to_text(m.group(1)) + '\n',
+            text,
+            flags=re.DOTALL
+        )
+        
+        # Convert inline math ($...$)
+        text = re.sub(
+            r'\$(.*?)\$',
+            lambda m: converter.latex_to_text(m.group(1)),
+            text
+        )
+        
+        return text
+    except Exception as e:
+        logger.warning(f"Failed to convert LaTeX to Unicode: {e}")
+        return text  # Return original text if conversion fails
+
 
 def build_vector_store(force_rebuild: bool):
     """Load FAISS index from disk if present, otherwise build it (ingest).
@@ -70,8 +108,9 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
             with Live(console=console, refresh_per_second=10) as live:
                 for chunk in generator.generate_stream():
                     full_response += chunk
-                    # Update the live display with formatted markdown
-                    md = Markdown(full_response)
+                    # Convert LaTeX to Unicode and update the live display
+                    display_text = convert_latex_to_unicode(full_response)
+                    md = Markdown(display_text)
                     live.update(md)
             
             try:
@@ -122,7 +161,9 @@ if __name__ == "__main__":
                 console = Console()
 
                 def display_response(text):
-                    md = Markdown(text)
+                    # Convert LaTeX to Unicode before rendering
+                    display_text = convert_latex_to_unicode(text)
+                    md = Markdown(display_text)
                     console.print(md)
                 
                 print("\n\n\n")
