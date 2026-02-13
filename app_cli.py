@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from app.ingestion.ingest import ingest
 from app.retriever.qdrant_retriever import QdrantRetriever
 from app.generation.generate_response import GenerateResponse
@@ -11,6 +12,43 @@ from cli_ans import *
 configure_logging()
 
 logger = logging.getLogger(__name__)
+
+def convert_latex_to_unicode(text: str) -> str:
+    """
+    Convert LaTeX formulas in text to Unicode characters for better terminal display.
+    Handles both inline ($...$) and display ($$...$$) math modes.
+    
+    Args:
+        text: Text containing LaTeX formulas
+        
+    Returns:
+        Text with LaTeX converted to Unicode
+    """
+    try:
+        from pylatexenc.latex2text import LatexNodes2Text
+        
+        converter = LatexNodes2Text()
+        
+        # Convert display math ($$...$$)
+        text = re.sub(
+            r'\$\$(.*?)\$\$',
+            lambda m: '\n' + converter.latex_to_text(m.group(1)) + '\n',
+            text,
+            flags=re.DOTALL
+        )
+        
+        # Convert inline math ($...$)
+        text = re.sub(
+            r'\$(.*?)\$',
+            lambda m: converter.latex_to_text(m.group(1)),
+            text
+        )
+        
+        return text
+    except Exception as e:
+        logger.warning(f"Failed to convert LaTeX to Unicode: {e}")
+        return text  # Return original text if conversion fails
+
 
 def build_vector_store(force_rebuild: bool):
     """Load FAISS index from disk if present, otherwise build it (ingest).
@@ -34,7 +72,7 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
     Args:
         query: User's question
         force_rebuild: Whether to rebuild the vector store
-        stream: If True and provider is Ollama, stream the response token by token
+        stream: If True and provider is Ollama or Portkey, stream the response token by token
         
     Returns:
         dict: Contains 'answer' and 'sources', or None if streaming is enabled
@@ -56,17 +94,24 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
         from app.load_secrets import LoadSecrets
         provider = LoadSecrets().get_provider()
         
-        if stream and provider == "ollama":
-            # Use streaming mode
+        if stream and provider in ["ollama", "portkey"]:
+            # Use streaming mode with Rich markdown rendering
+            from rich.console import Console
+            from rich.markdown import Markdown
+            from rich.live import Live
+            
+            console = Console()
             generator = GenerateResponse(retrieved, query)
-            print("\n", end="", flush=True)  # Start on new line
             full_response = ""
             
-            for chunk in generator.generate_stream():
-                print(chunk, end="", flush=True)
-                full_response += chunk
-            
-            print()  # New line after streaming completes
+            # Use Live display for real-time markdown rendering
+            with Live(console=console, refresh_per_second=10) as live:
+                for chunk in generator.generate_stream():
+                    full_response += chunk
+                    # Convert LaTeX to Unicode and update the live display
+                    display_text = convert_latex_to_unicode(full_response)
+                    md = Markdown(display_text)
+                    live.update(md)
             
             try:
                 used_sources = extracts_sources(full_response, retrieved)
@@ -92,13 +137,13 @@ def run_rag(query: str, force_rebuild: bool = False, stream: bool = False):
 if __name__ == "__main__":
     logger.info("Type 'exit' to quit the console.")
     
-    # Check if we're using Ollama for streaming
+    # Check if we're using Ollama or Portkey for streaming
     from app.load_secrets import LoadSecrets
     provider = LoadSecrets().get_provider()
-    use_streaming = (provider == "ollama")
+    use_streaming = (provider in ["ollama", "portkey"])
     
     if use_streaming:
-        logger.info("Streaming mode enabled for Ollama")
+        logger.info(f"Streaming mode enabled for {provider}")
     
     query =""
     while(query != "exit"):
@@ -116,7 +161,9 @@ if __name__ == "__main__":
                 console = Console()
 
                 def display_response(text):
-                    md = Markdown(text)
+                    # Convert LaTeX to Unicode before rendering
+                    display_text = convert_latex_to_unicode(text)
+                    md = Markdown(display_text)
                     console.print(md)
                 
                 print("\n\n\n")

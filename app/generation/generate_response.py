@@ -74,52 +74,83 @@ class GenerateResponse:
     
     def generate_stream(self):
         """
-        Generate a streaming response using Ollama.
+        Generate a streaming response using Ollama or Portkey.
         This method yields tokens as they are generated, allowing for real-time display.
-        Only works with Ollama provider.
+        Works with both Ollama and Portkey providers.
         
         Yields:
             str: Individual tokens/chunks from the LLM response
         
         Raises:
-            RuntimeError: If provider is not Ollama or if streaming fails
+            RuntimeError: If provider is unknown or if streaming fails
         """
         provider = self.pipeline_builder.get_provider()
-        
-        if provider != "ollama":
-            raise RuntimeError(f"Streaming is only supported for Ollama provider, not {provider}")
-        
         prompt_template = self.pipeline_builder.get_prompt_template()
         prompt = prompt_template.render(documents=self.get_documents(), query=self.get_query())
         
-        try:
-            # Create Ollama client with proper host configuration
-            ollama_host = self.load_secrets.get_ollama_host()
-            client = ollama.Client(host=ollama_host)
-            
-            # Use ollama.chat with streaming enabled
-            # Use the same model as non-streaming mode (GENERATION_MODEL)
-            model = self.get_llm_model()
-            
-            stream = client.chat(
-                model=model,
-                messages=[
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ],
-                stream=True,
-                options={
-                    'temperature': self.load_secrets.get_temperature()
-                }
-            )
-            
-            # Yield each chunk as it arrives
-            for chunk in stream:
-                if 'message' in chunk and 'content' in chunk['message']:
-                    yield chunk['message']['content']
+        match provider:
+            case "portkey":
+                try:
+                    llm = self.pipeline_builder.get_llm_generation()
+                    slug = self.load_secrets.get_portkey_slug()
                     
-        except (ollama.ResponseError, KeyError) as e:
-            logger.exception("Ollama streaming failed.")
-            raise RuntimeError("Ollama streaming failed.") from e
+                    # Use Portkey's streaming API
+                    stream = llm.chat.completions.create(
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        temperature=self.load_secrets.get_temperature(),
+                        model=f"@{slug}/{self.get_llm_model()}",
+                        stream=True
+                    )
+                    
+                    # Yield each chunk as it arrives
+                    for chunk in stream:
+                        if chunk.choices and len(chunk.choices) > 0:
+                            delta = chunk.choices[0].delta
+                            if hasattr(delta, 'content') and delta.content:
+                                yield delta.content
+                                
+                except (httpx.RequestError, KeyError, IndexError) as e:
+                    logger.exception("Portkey streaming failed.")
+                    raise RuntimeError("Portkey streaming failed.") from e
+                    
+            case "ollama":
+                try:
+                    # Create Ollama client with proper host configuration
+                    ollama_host = self.load_secrets.get_ollama_host()
+                    client = ollama.Client(host=ollama_host)
+                    
+                    # Use ollama.chat with streaming enabled
+                    # Use the same model as non-streaming mode (GENERATION_MODEL)
+                    model = self.get_llm_model()
+                    
+                    stream = client.chat(
+                        model=model,
+                        messages=[
+                            {
+                                'role': 'user',
+                                'content': prompt
+                            }
+                        ],
+                        stream=True,
+                        options={
+                            'temperature': self.load_secrets.get_temperature()
+                        }
+                    )
+                    
+                    # Yield each chunk as it arrives
+                    for chunk in stream:
+                        if 'message' in chunk and 'content' in chunk['message']:
+                            yield chunk['message']['content']
+                            
+                except (ollama.ResponseError, KeyError) as e:
+                    logger.exception("Ollama streaming failed.")
+                    raise RuntimeError("Ollama streaming failed.") from e
+                    
+            case _:
+                logger.error("Unknown provider for streaming: %s", provider)
+                raise RuntimeError(f"Streaming is not supported for provider: {provider}")
